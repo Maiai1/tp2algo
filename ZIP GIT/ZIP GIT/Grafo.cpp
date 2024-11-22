@@ -2,380 +2,334 @@
 #define GRAFO_H_
 
 #include "GeneradorIdentificador.h"
-#include <string>
+#include "GeneradorIdentificador.h"
 #include <iostream>
+#include <string>
+#include<sstream>
 #include <vector>
+
+using namespace std;
+
+
+
+#include "Grafo.h"
 #include <algorithm>
 
-using std::string;
-using std::ostringstream;
-using std::vector;
+    namespace URGGrafo {
+        struct NodoAdyacencias {
+            int verticeAdyacente;
+            NodoAdyacencias* siguiente;
+        };
 
-namespace URGGrafo {
+        struct ListaAdyacencias {
+            NodoAdyacencias* primero;
+        };
 
-    struct NodoAdyacencia {
-        NodoAdyacencia* siguiente;
-        int verticeAdyacente;
-    };
+        struct NodoVertices {
+            string etiqueta;
+            ListaAdyacencias* adyacencias;
+        };
 
-    struct listaAdyacencia {
-        NodoAdyacencia* primero;
-    };
+        struct Grafo {
+            NodoVertices* vertices;  // Array de nodos (vértices)
+            string nombre;
+            int cantidadVertices;
+            bool dirigido;
+            string identificador;
+        };
 
-    struct Grafo {
-        string id;
-        string nombre;
-        vector<string> etiquetas;
-        int cantidadVertices = 0;
-        enum TipoGrafo { DIRIGIDO, NO_DIRIGIDO} tipo = NO_DIRIGIDO;
-        listaAdyacencia* adyacencias = nullptr; // es un diccionario donde la clave es el id de vertice y el valor son sus adyacencias
-    };
-
-    // Función auxiliar para crear un grafo
-    Grafo* CrearGrafo(string nombre, int cantidadVertices, Grafo::TipoGrafo tipo) {
-        if (cantidadVertices < 0) {
-            return nullptr; // Verificamos la precondición
+        // Funciones auxiliares privadas
+        void inicializarListaAdyacencias(ListaAdyacencias* lista) {
+            lista->primero = nullptr;
         }
 
-        Grafo* grafo = new Grafo;
-        grafo->nombre = nombre;
-        grafo->cantidadVertices = cantidadVertices;
-        grafo->tipo = tipo;
-        grafo->id = URGGeneradorIdentificador::GenerarIdentificadorUnico();
-        grafo->adyacencias = new listaAdyacencia[cantidadVertices]; // Asignamos memoria para la lista de adyacencias
 
-        // Inicializamos las listas de adyacencias
-        for (int i = 0; i < cantidadVertices; ++i) {
-            grafo->adyacencias[i].primero = nullptr;
-        }
-
-        return grafo;
-    }
-
-    /*
-     * Precondicion: -
-     * Postcondicion: Si @cantidad de vertices es un numero mayor o igual que cero
-     * devuelve un grafo dirigido de nombre @nombre al cual se le asocia un identificador unico.
-     * Si @cantidad de vertices es menor que cero devuelve NULL
-     */
-    Grafo* CrearGrafoDirigido(string nombre, int cantidadVertices) {
-        return CrearGrafo(nombre, cantidadVertices, Grafo::DIRIGIDO);
-    }
-
-    /*
-     * Precondicion: -
-     * Postcondicion: Si @cantidad de vertices es un numero mayor o igual que cero
-     * devuelve un grafo no dirigido de nombre @nombre al cual se le asocia un identificador unico.
-     * Si @cantidad de vertices es menor que cero devuelve NULL
-     */
-    Grafo* CrearGrafoNoDirigido(string nombre, int cantidadVertices) {
-        return CrearGrafo(nombre, cantidadVertices, Grafo::NO_DIRIGIDO);
-    }
-
-    /*
-     * Precondicion: @grafo es una instancia valida creada con alguna de las primitivas creacionales
-     * Postcondicion: Devuelve el nombre de @grafo
-     */
-    string ObtenerNombre(const Grafo* grafo) {
-        return grafo->nombre; // Retorna el nombre del grafo
-    }
-
-    /*
-     * Precondicion: @grafo es una instancia valida creada con alguna de las primitivas creacionales
-     * Postcondicion: Devuelve el identificador unico de @grafo
-     */
-    string ObtenerIdentificador(const Grafo* grafo) {
-        return grafo->id; // Retorna el identificador del grafo
-    }
-
-    // Función para agregar un nodo a la lista de adyacencia
-    void AgregarAdyacencia(listaAdyacencia& lista, int verticeAdyacente) {
-        NodoAdyacencia* nuevoNodo = new NodoAdyacencia;
-        nuevoNodo->verticeAdyacente = verticeAdyacente;
-        nuevoNodo->siguiente = lista.primero;
-        lista.primero = nuevoNodo;
-    }
-
-    /*
-     * Precondicion: @grafo es una instancia valida creada con alguna de las primitivas creacionales
-     * Postcondicion: Si @grafo es un grafo no dirigido, se agrega una relacion de adyacencia conmutativa entre @verticeOrigen y @verticeDestino.
-     * Si @grafo es un grafo dirigido, se agrega una relacion de adyacencia de @verticeOrigen a @verticeDestino.
-     * Si @verticeOrigen o @verticeDestino no pertenece al grafo no realiza ninguna accion.
-     */
-    void Conectar(Grafo* grafo, int verticeOrigen, int verticeDestino) {
-        // Verificamos que los vértices estén dentro del rango
-        if (verticeOrigen < 0 || verticeOrigen >= grafo->cantidadVertices ||
-            verticeDestino < 0 || verticeDestino >= grafo->cantidadVertices) {
-            return; // No hacemos nada si los vértices están fuera de rango
-        }
-
-        // Agregar la relación de adyacencia para el grafo dirigido
-        AgregarAdyacencia(grafo->adyacencias[verticeOrigen], verticeDestino);
-
-        // Si el grafo es no dirigido, agregar la relación de adyacencia en ambas direcciones
-        if (grafo->tipo == Grafo::NO_DIRIGIDO) {
-            AgregarAdyacencia(grafo->adyacencias[verticeDestino], verticeOrigen);
-        }
-    }
-
-
-    // Función para verificar si un vértice está en la lista de adyacencia
-    bool EstaEnLista(const listaAdyacencia& lista, int vertice) {
-        NodoAdyacencia* actual = lista.primero;
-        while (actual != nullptr) {
-            if (actual->verticeAdyacente == vertice) {
-                return true; // Vértice encontrado
+        bool existeAdyacencia(const ListaAdyacencias* lista, int vertice) {
+            NodoAdyacencias* actual = lista->primero;
+            while (actual != nullptr) {
+                if (actual->verticeAdyacente == vertice) {
+                    return true;
+                }
+                actual = actual->siguiente;
             }
-            actual = actual->siguiente; // Avanzamos al siguiente nodo
-        }
-        return false; // Vértice no encontrado
-    }
-
-    /*
-     * Precondicion: @grafo es una instancia valida creada con alguna de las primitivas creacionales
-     * Postcondicion: Devuelve true si @verticeOrigen es adyacente a @verticeDestino. Caso contrario devuelve false
-     */
-    bool SonAdyacentes(const Grafo* grafo, int verticeOrigen, int verticeDestino) {
-        // Verificamos que los vértices estén dentro del rango
-        if (verticeOrigen < 0 || verticeOrigen >= grafo->cantidadVertices ||
-            verticeDestino < 0 || verticeDestino >= grafo->cantidadVertices) {
-            return false; // Si los vértices están fuera de rango, no son adyacentes
+            return false;
         }
 
-        // Verificamos si verticeDestino está en la lista de adyacencia de verticeOrigen
-        return EstaEnLista(grafo->adyacencias[verticeOrigen], verticeDestino);
-    }
+        void agregarAdyacencia(ListaAdyacencias* lista, int vertice) {
+            // Evitar duplicados
+            if (existeAdyacencia(lista, vertice)) return;
 
-    /*
-    * Precondiciones: @grafo es una instancia valida creada con alguna de las primitivas creacionales
-    * Postcondiciones: Devuelve los vertices en un registro en formato CSV donde cada campo es un vertice.
-    * Si los vertices tienen etiquetas devuelve las etiquetas en lugar del numero de vertice.
-    */
-string ObtenerVertices(const Grafo* grafo) {
-    string resultado; // Usamos una cadena para construir el resultado
-
-    // Verificamos que no haya índices fuera de rango
-    for (int i = 0; i < grafo->cantidadVertices; ++i) {
-        if (i >= grafo->etiquetas.size()) {
-            resultado += std::to_string(i); // Si no hay etiqueta, usamos el índice
-        }
-        else if (!grafo->etiquetas[i].empty()) {
-            resultado += grafo->etiquetas[i]; // Usamos la etiqueta si está definida
-        }
-        else {
-            resultado += std::to_string(i); // Usamos el índice si la etiqueta está vacía
-        }
-        if (i < grafo->cantidadVertices - 1) {
-            resultado += ",";
-        }
-    }
-    return resultado;
-}
-
-
-    Grafo* ObtenerUnion(const Grafo* grafo1, const Grafo* grafo2) {
-        // Verificar que los grafos sean válidos
-        if (!grafo1 || !grafo2) {
-            return nullptr; // Retornar nullptr si alguno de los grafos es inválido
+            NodoAdyacencias* nuevo = new NodoAdyacencias;
+            nuevo->verticeAdyacente = vertice;
+            nuevo->siguiente = lista->primero;
+            lista->primero = nuevo;
         }
 
-        // Calcular el número total de vértices
-        int totalVertices = grafo1->cantidadVertices + grafo2->cantidadVertices;
 
-        // Inicializar el nuevo grafo
-        Grafo* unionGrafo = CrearGrafo("Union",
-            totalVertices,
-            (grafo1->tipo == Grafo::DIRIGIDO && grafo2->tipo == Grafo::DIRIGIDO) ? Grafo::DIRIGIDO : Grafo::NO_DIRIGIDO);
-
-        if (unionGrafo == nullptr) {
-            return nullptr; // Manejo de error si no se pudo inicializar el grafo
-        }
-
-        // Copiar las etiquetas de los vértices de grafo1
-        for (int i = 0; i < grafo1->cantidadVertices; ++i) {
-            unionGrafo->etiquetas[i] = grafo1->etiquetas[i]; // Copiar etiquetas de grafo1
-        }
-
-        // Copiar las etiquetas de los vértices de grafo2
-        for (int i = 0; i < grafo2->cantidadVertices; ++i) {
-            unionGrafo->etiquetas[grafo1->cantidadVertices + i] = grafo2->etiquetas[i]; // Copiar etiquetas de grafo2
-        }
-
-        // Conectar las aristas de grafo1
-        for (int i = 0; i < grafo1->cantidadVertices; ++i) {
-            NodoAdyacencia* adyacente = grafo1->adyacencias[i].primero;
-            while (adyacente) {
-                // Agregar arista desde el vértice i a su adyacente
-                NodoAdyacencia* nuevoNodo = new NodoAdyacencia;
-                nuevoNodo->verticeAdyacente = adyacente->verticeAdyacente; // Vertice adyacente original
-                nuevoNodo->siguiente = unionGrafo->adyacencias[i].primero; // Apuntar al primer nodo existente
-                unionGrafo->adyacencias[i].primero = nuevoNodo; // Actualizar el primer nodo
-                adyacente = adyacente->siguiente; // Avanzar al siguiente nodo
-            }
-        }
-
-        // Conectar las aristas de grafo2
-        for (int i = 0; i < grafo2->cantidadVertices; ++i) {
-            NodoAdyacencia* adyacente = grafo2->adyacencias[i].primero;
-            while (adyacente) {
-                // Agregar arista desde el vértice (i + cantidad de grafo1) a su adyacente
-                NodoAdyacencia* nuevoNodo = new NodoAdyacencia;
-                nuevoNodo->verticeAdyacente = adyacente->verticeAdyacente + grafo1->cantidadVertices; // Ajustar el índice
-                nuevoNodo->siguiente = unionGrafo->adyacencias[grafo1->cantidadVertices + i].primero; // Apuntar al primer nodo existente
-                unionGrafo->adyacencias[grafo1->cantidadVertices + i].primero = nuevoNodo; // Actualizar el primer nodo
-                adyacente = adyacente->siguiente; // Avanzar al siguiente nodo
-            }
-        }
-
-        return unionGrafo; // Devolver el nuevo grafo que representa la unión
-    }
-
-    void CopiarEtiquetas(const Grafo* grafoOrigen, Grafo* grafoDestino) {
-        for (int i = 0; i < grafoOrigen->cantidadVertices; ++i) {
-            grafoDestino->etiquetas[i] = grafoOrigen->etiquetas[i]; // Copiar la etiqueta de cada vértice
-        }
-    }
-
-    Grafo* ObtenerGrafoComplementario(const Grafo* grafo) {
-        Grafo* complemento = new Grafo;
-        complemento->cantidadVertices = grafo->cantidadVertices;
-        complemento->tipo = Grafo::NO_DIRIGIDO;  // El complemento será no dirigido
-        complemento->adyacencias = new listaAdyacencia[complemento->cantidadVertices];
-        complemento->etiquetas.resize(complemento->cantidadVertices);
-
-        // Copiar las etiquetas del grafo original
-        CopiarEtiquetas(grafo, complemento);
-
-        // Agregar aristas en el complemento
-        for (int i = 0; i < grafo->cantidadVertices; ++i) {
-            for (int j = 0; j < grafo->cantidadVertices; ++j) {
-                if (i != j && !SonAdyacentes(grafo, i, j)) {
-                    Conectar(complemento, i, j);  // Agregar arista si no existe en el grafo original
+        void copiarAdyacencias(const Grafo* origen, Grafo* destino) {
+            for (int i = 0; i < origen->cantidadVertices; i++) {
+                NodoAdyacencias* actual = origen->vertices[i].adyacencias->primero;
+                while (actual != nullptr) {
+                    agregarAdyacencia(destino->vertices[i].adyacencias, actual->verticeAdyacente);
+                    actual = actual->siguiente;
                 }
             }
         }
 
-        return complemento;
-    }
+        // Implementación de funciones principales
+        Grafo* CrearGrafoDirigido(string nombre, int cantidadVertices) {
+            if (cantidadVertices < 0) return nullptr;
 
-    int ObtenerGrado(const Grafo* grafo, int vertice) {
-        if (grafo->tipo == Grafo::NO_DIRIGIDO) {
-            // En un grafo no dirigido, el grado es el número de adyacentes
+            Grafo* grafo = new Grafo;
+            grafo->nombre = nombre;
+            grafo->cantidadVertices = cantidadVertices;
+            grafo->dirigido = true;
+            grafo->identificador =URGGeneradorIdentificador ::GenerarIdentificadorUnico();
+
+            grafo->vertices = new NodoVertices[cantidadVertices];
+            for (int i = 0; i < cantidadVertices; i++) {
+                grafo->vertices[i].adyacencias = new ListaAdyacencias;
+                inicializarListaAdyacencias(grafo->vertices[i].adyacencias);
+                grafo->vertices[i].etiqueta = "";
+            }
+
+            return grafo;
+        }
+
+        Grafo* CrearGrafoNoDirigido(string nombre, int cantidadVertices) {
+            if (cantidadVertices < 0) return nullptr;
+
+            Grafo* grafo = CrearGrafoDirigido(nombre, cantidadVertices);
+            if (grafo != nullptr) {
+                grafo->dirigido = false;
+            }
+            return grafo;
+        }
+
+        string ObtenerNombre(const Grafo* grafo) {
+            return grafo->nombre;
+        }
+
+        string ObtenerIdentificador(const Grafo* grafo) {
+            return grafo->identificador;
+        }
+
+        void Conectar(Grafo* grafo, int verticeOrigen, int verticeDestino) {
+            if (verticeOrigen < 0 || verticeOrigen >= grafo->cantidadVertices ||
+                verticeDestino < 0 || verticeDestino >= grafo->cantidadVertices) {
+                return;
+            }
+
+            agregarAdyacencia(grafo->vertices[verticeOrigen].adyacencias, verticeDestino);
+
+            if (!grafo->dirigido) {
+                agregarAdyacencia(grafo->vertices[verticeDestino].adyacencias, verticeOrigen);
+            }
+        }
+
+        bool SonAdyacentes(const Grafo* grafo, int verticeOrigen, int verticeDestino) {
+            if (verticeOrigen < 0 || verticeOrigen >= grafo->cantidadVertices ||
+                verticeDestino < 0 || verticeDestino >= grafo->cantidadVertices) {
+                return false;
+            }
+
+            return existeAdyacencia(grafo->vertices[verticeOrigen].adyacencias, verticeDestino);
+        }
+
+        string ObtenerVertices(const Grafo* grafo) {
+            std::stringstream ss;
+            for (int i = 0; i < grafo->cantidadVertices; i++) {
+                if (i > 0) ss << ",";
+                if (grafo->vertices[i].etiqueta.empty()) {
+                    ss << i;
+                }
+                else {
+                    ss << grafo->vertices[i].etiqueta;
+                }
+            }
+            return ss.str();
+        }
+
+        string ObtenerAristas(const Grafo* grafo) {
+            std::stringstream ss;
+            bool primero = true;
+
+            for (int i = 0; i < grafo->cantidadVertices; i++) {
+                NodoAdyacencias* actual = grafo->vertices[i].adyacencias->primero;
+                while (actual != nullptr) {
+                    // Para grafos no dirigidos, solo imprimimos una vez cada arista
+                    if (grafo->dirigido || i < actual->verticeAdyacente) {
+                        if (!primero) ss << " ";
+                        if (grafo->vertices[i].etiqueta.empty()) {
+                            ss << i;
+                        }
+                        else {
+                            ss << grafo->vertices[i].etiqueta;
+                        }
+                        ss << "-";
+                        if (grafo->vertices[actual->verticeAdyacente].etiqueta.empty()) {
+                            ss << actual->verticeAdyacente;
+                        }
+                        else {
+                            ss << grafo->vertices[actual->verticeAdyacente].etiqueta;
+                        }
+                        primero = false;
+                    }
+                    actual = actual->siguiente;
+                }
+            }
+            return ss.str();
+        }
+
+        Grafo* ObtenerUnion(const Grafo* grafo1, const Grafo* grafo2) {
+            // Verificar que ambos grafos sean del mismo tipo (dirigidos o no dirigidos)
+            if (grafo1->dirigido != grafo2->dirigido) return nullptr;
+
+            // Crear un nuevo grafo con la cantidad máxima de vértices
+            int maxVertices = std::max(grafo1->cantidadVertices, grafo2->cantidadVertices);
+            Grafo* unionGrafo = grafo1->dirigido ?
+                CrearGrafoDirigido("Union", maxVertices) :
+                CrearGrafoNoDirigido("Union", maxVertices);
+
+            // Copiar etiquetas y adyacencias del primer grafo
+            for (int i = 0; i < grafo1->cantidadVertices; i++) {
+                unionGrafo->vertices[i].etiqueta = grafo1->vertices[i].etiqueta;
+                NodoAdyacencias* actual = grafo1->vertices[i].adyacencias->primero;
+                while (actual != nullptr) {
+                    agregarAdyacencia(unionGrafo->vertices[i].adyacencias, actual->verticeAdyacente);
+                    actual = actual->siguiente;
+                }
+            }
+
+            // Agregar adyacencias del segundo grafo
+            for (int i = 0; i < grafo2->cantidadVertices; i++) {
+                if (grafo2->vertices[i].etiqueta != "" && i < maxVertices) {
+                    unionGrafo->vertices[i].etiqueta = grafo2->vertices[i].etiqueta;
+                }
+                NodoAdyacencias* actual = grafo2->vertices[i].adyacencias->primero;
+                while (actual != nullptr && actual->verticeAdyacente < maxVertices) {
+                    agregarAdyacencia(unionGrafo->vertices[i].adyacencias, actual->verticeAdyacente);
+                    actual = actual->siguiente;
+                }
+            }
+
+            return unionGrafo;
+        }
+
+        Grafo* ObtenerGrafoComplementario(const Grafo* grafo) {
+            Grafo* complemento = grafo->dirigido ?
+                CrearGrafoDirigido("Complemento", grafo->cantidadVertices) :
+                CrearGrafoNoDirigido("Complemento", grafo->cantidadVertices);
+
+            // Copiar etiquetas
+            for (int i = 0; i < grafo->cantidadVertices; i++) {
+                complemento->vertices[i].etiqueta = grafo->vertices[i].etiqueta;
+            }
+
+            // Agregar aristas complementarias
+            for (int i = 0; i < grafo->cantidadVertices; i++) {
+                for (int j = grafo->dirigido ? 0 : i + 1; j < grafo->cantidadVertices; j++) {
+                    if (i != j && !SonAdyacentes(grafo, i, j)) {
+                        agregarAdyacencia(complemento->vertices[i].adyacencias, j);
+                        if (!complemento->dirigido) {
+                            agregarAdyacencia(complemento->vertices[j].adyacencias, i);
+                        }
+                    }
+                }
+            }
+
+            return complemento;
+        }
+
+        int ObtenerGrado(const Grafo* grafo, int vertice) {
+            if (vertice < 0 || vertice >= grafo->cantidadVertices) {
+                return 0;
+            }
+
             int grado = 0;
-            NodoAdyacencia* actual = grafo->adyacencias[vertice].primero;
-            while (actual) {
+            NodoAdyacencias* actual = grafo->vertices[vertice].adyacencias->primero;
+            while (actual != nullptr) {
                 grado++;
                 actual = actual->siguiente;
             }
-            return grado;
-        }
-        else {
-            // En un grafo dirigido, el grado de salida es el número de adyacentes
-            int gradoSalida = 0;
-            NodoAdyacencia* actual = grafo->adyacencias[vertice].primero;
-            while (actual) {
-                gradoSalida++;
-                actual = actual->siguiente;
+
+            // Para grafos no dirigidos, cada arista cuenta como grado
+            if (!grafo->dirigido) {
+                return grado;
             }
-            return gradoSalida;
+            // Para grafos dirigidos, debemos contar también las aristas entrantes si queremos el grado total
+            else {
+                int gradoEntrada = 0;
+                for (int i = 0; i < grafo->cantidadVertices; i++) {
+                    if (i != vertice && SonAdyacentes(grafo, i, vertice)) {
+                        gradoEntrada++;
+                    }
+                }
+                return grado; // Devolvemos solo el grado de salida según la especificación
+            }
         }
-    }
 
-
-    void AgregarEtiqueta(Grafo* grafo, int vertice, string etiqueta) {
-        if (vertice >= 0 && vertice < grafo->cantidadVertices) {
-            grafo->etiquetas[vertice] = etiqueta;  // Asigna la etiqueta al vértice correspondiente
+        void AgregarEtiqueta(Grafo* grafo, int vertice, string etiqueta) {
+            if (vertice >= 0 && vertice < grafo->cantidadVertices) {
+                grafo->vertices[vertice].etiqueta = etiqueta;
+            }
         }
-    }
 
+        bool EsCompleto(const Grafo* grafo) {
+            int gradoEsperado = grafo->cantidadVertices - 1;
 
-    bool EsCompleto(const Grafo* grafo) {
-        for (int i = 0; i < grafo->cantidadVertices; ++i) {
-            for (int j = 0; j < grafo->cantidadVertices; ++j) {
-                if (i != j && !SonAdyacentes(grafo, i, j)) {
-                    return false;  // Si algún par de vértices no es adyacente, no es completo
+            for (int i = 0; i < grafo->cantidadVertices; i++) {
+                for (int j = 0; j < grafo->cantidadVertices; j++) {
+                    if (i != j && !SonAdyacentes(grafo, i, j)) {
+                        return false;
+                    }
                 }
             }
+            return true;
         }
-        return true;  // Si todos los vértices están conectados, es completo
-    }
-    string ObtenerAristas(const Grafo* grafo) {
-        string resultado;
 
-        // Recorremos todos los vértices
-        for (int i = 0; i < grafo->cantidadVertices; ++i) {
-            NodoAdyacencia* actual = grafo->adyacencias[i].primero;
+        string ObtenerSucesionGrafica(const Grafo* grafo) {
+            std::stringstream ss;
+            vector<int> grados;
 
-            // Para cada vértice, recorremos sus adyacencias
-            while (actual != nullptr) {
-                // Si es un grafo no dirigido, solo incluimos las aristas donde i < verticeAdyacente
-                // para evitar duplicados
-                if (grafo->tipo == Grafo::NO_DIRIGIDO && i > actual->verticeAdyacente) {
-                    actual = actual->siguiente;
-                    continue;
-                }
-
-                // Si hay etiquetas, usamos las etiquetas en lugar de los números
-                string verticeOrigen = !grafo->etiquetas[i].empty() ?
-                    grafo->etiquetas[i] : std::to_string(i);
-                string verticeDestino = !grafo->etiquetas[actual->verticeAdyacente].empty() ?
-                    grafo->etiquetas[actual->verticeAdyacente] :
-                    std::to_string(actual->verticeAdyacente);
-
-                // Agregamos la arista al resultado
-                if (!resultado.empty()) {
-                    resultado += ",";
-                }
-                resultado += verticeOrigen + "-" + verticeDestino;
-
-                actual = actual->siguiente;
+            // Obtener todos los grados
+            for (int i = 0; i < grafo->cantidadVertices; i++) {
+                grados.push_back(ObtenerGrado(grafo, i));
             }
-        }
 
-        return resultado;
-    }
+            // Ordenar los grados en orden descendente
+            std::sort(grados.begin(), grados.end(), std::greater<int>());
 
-    string ObtenerSucesionGrafica(const Grafo* grafo) {
-        vector<int> grados;
-        for (int i = 0; i < grafo->cantidadVertices; ++i) {
-            grados.push_back(ObtenerGrado(grafo, i));  // Obtener el grado de cada vértice
-        }
-
-        // Ordenar los grados de mayor a menor
-        sort(grados.rbegin(), grados.rend());
-
-        // Convertir los grados a una cadena separada por comas
-        string resultado;
-        for (int i = 0; i < grados.size(); ++i) {
-            resultado += std::to_string(grados[i]);
-            if (i < grados.size() - 1) {
-                resultado += ",";
+            // Crear la sucesión gráfica
+            for (size_t i = 0; i < grados.size(); i++) {
+                if (i > 0) ss << ",";
+                ss << grados[i];
             }
+
+            return ss.str();
         }
 
-        return resultado;
+        int ObtenerCantidadVertices(const Grafo* grafo) {
+            return grafo->cantidadVertices;
+        }
+
+        void CambiarNombre(Grafo* grafo, string nombre) {
+            grafo->nombre = nombre;
+        }
+
+        void DestruirGrafo(Grafo* grafo) {
+            for (int i = 0; i < grafo->cantidadVertices; i++) {
+                NodoAdyacencias* actual = grafo->vertices[i].adyacencias->primero;
+                while (actual != nullptr) {
+                    NodoAdyacencias* siguiente = actual->siguiente;
+                    delete actual;
+                    actual = siguiente;
+                }
+                delete grafo->vertices[i].adyacencias;
+            }
+            delete[] grafo->vertices;
+            delete grafo;
+        }
+
     }
-
-    int ObtenerCantidadVertices(const Grafo* grafo) {
-        return grafo->cantidadVertices;
-    }
-
-    void CambiarNombre(Grafo* grafo, string nombre) {
-        grafo->nombre = nombre;
-    }
-
-    void DestruirGrafo(Grafo* grafo) {
-
-        delete[] grafo->adyacencias;
-
-        delete grafo;
-    }
-
-    
-
-}
-
-
-
-
 #endif
